@@ -1,0 +1,94 @@
+<html>
+<head>
+  <title>Server Restart</title>
+  <hta:application
+    id="sshControlApp"
+    applicationname="SSHControl"
+    border="thin"
+    caption="yes"
+    maximizebutton="no"
+    minimizebutton="yes"
+    showintaskbar="yes"
+    singleinstance="yes"
+    sysmenu="yes"
+    scroll="no"
+  />
+  <script language="vbscript">
+    Sub RunScript()
+      Dim user, host, pass, shell, fso, logFile, batPath, tempBatPath, file, outputText
+
+      ' Get input values
+      user = document.getElementById("user").value
+      host = document.getElementById("host").value
+      pass = document.getElementById("pass").value
+
+      If user = "" Or host = "" Or pass = "" Then
+        MsgBox "Please enter username, host, and password.", vbExclamation, "Missing Input"
+        Exit Sub
+      End If
+
+      Set fso = CreateObject("Scripting.FileSystemObject")
+      Set shell = CreateObject("WScript.Shell")
+
+      ' Paths
+      batPath = fso.GetAbsolutePathName("server restart.bat")
+      logFile = fso.GetAbsolutePathName("ssh_output.log")
+      tempBatPath = fso.GetAbsolutePathName("temp_runner.bat")
+
+      If Not fso.FileExists(batPath) Then
+        MsgBox "'server restart.bat' not found.", vbCritical, "Missing Batch File"
+        Exit Sub
+      End If
+
+      ' Create temp_runner.bat to run the script with inline variables
+      Dim tempBat
+      Set tempBat = fso.CreateTextFile(tempBatPath, True)
+      tempBat.WriteLine "@echo off"
+      tempBat.WriteLine "set USER=" & user
+      tempBat.WriteLine "set HOST=" & host
+      tempBat.WriteLine "set PASS=" & pass
+      tempBat.WriteLine "call """ & batPath & """"
+      tempBat.Close
+
+      ' Run the temp batch
+      shell.Run "cmd.exe /c """ & tempBatPath & """", 0, True
+
+      ' Wait and load output
+      If fso.FileExists(logFile) Then
+        Set file = fso.OpenTextFile(logFile, 1)
+        outputText = file.ReadAll
+        file.Close
+        document.getElementById("output").value = outputText
+      Else
+        document.getElementById("output").value = "No log file found or script failed to run."
+      End If
+
+      ' Clean up temp batch
+      If fso.FileExists(tempBatPath) Then fso.DeleteFile(tempBatPath)
+    End Sub
+  </script>
+</head>
+<body style="font-family:Segoe UI; font-size:10pt; padding:20px;">
+  <h2>Server Restart</h2>
+
+  <p><b>Username:</b><br/>
+    <input type="text" id="user" style="width:300px;" />
+  </p>
+
+  <p><b>Host:</b><br/>
+    <input type="text" id="host" style="width:300px;" />
+  </p>
+
+  <p><b>Password:</b><br/>
+    <input type="password" id="pass" style="width:300px;" />
+  </p>
+
+  <p>
+    <input type="button" value="Run Script" onclick="RunScript" style="padding:6px 12px;" />
+  </p>
+
+  <p><b>Output:</b><br/>
+    <textarea id="output" rows="20" cols="80" readonly style="width:100%; font-family:Consolas;"></textarea>
+  </p>
+</body>
+</html>
